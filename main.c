@@ -49,7 +49,7 @@ void ms_delay(int ms) {
 
 //GLOBAL VARIABLES
 static short j=10;
-unsigned short adc_resultA[350];
+unsigned short adc_resultA[1400];
 unsigned short adc_resultB[350];
 
 
@@ -64,6 +64,8 @@ unsigned short adc_htcnt=0;
 unsigned short adc_tccnt=0;
 
 unsigned short spi_cnt=0;
+
+unsigned int spindtr=0;
 
 
 unsigned int spdtxdma=0;
@@ -126,12 +128,13 @@ void disable_int_spi(void)
 void enable_spi(void)
 {
   
-  SPI1->CR1 &=0x00000000;
+        SPI1->CR1 &=0x00000000;
 	SPI1->CR2 |=SPI_CR2_DS; //16 bit data frame
 	SPI1->CR1 |=SPI_CR1_BR_0; // Baud Rate as  fpclk/4 (21 Mhz) where fpclk is APB2 clock=84Mhz
 
 	SPI1->CR1 |= SPI_CR1_SSM ;
-	SPI1->CR1 |= SPI_CR1_SSI;                       
+	SPI1->CR1 |= SPI_CR1_SSI;        
+  //      SPI1->CR2 |= SPI_CR2_SSOE; 
 	SPI1->CR1 |=SPI_CR1_MSTR;
         
 
@@ -173,7 +176,7 @@ void enable_adc()
 //  ADC1->SR &=~(ADC_SR_OVR);
 
         DMA1_Channel1->CMAR = (uint32_t)&adc_resultA[2];
-        DMA1_Channel1->CNDTR =346; //46 readings transfer
+        DMA1_Channel1->CNDTR =1396; //46 readings transfer
         //Emable DMA Stream for ADC
         DMA1_Channel1->CCR |=DMA_CCR_EN;
           
@@ -236,19 +239,20 @@ unsigned short SPIsend(unsigned short data)
  
 void spi_cs_enable(void)
 {
-    GPIOB->BSRRH|=0x0040 ; //CS Enable (low)
+    GPIOC->BSRRH|=0x0040 ; //CS Enable (low)
 }
 
  void spi_cs_disable(void)
 {
-      GPIOB->BSRRL|=0x0040;                  //CS Disable (high) 
+      GPIOC->BSRRL|=0x0040;                  //CS Disable (high) 
 }
 
-__irq void DMA1_Channel1_IRQHandler()
+__irq void DMA1_Channel1_IRQHandler(void)
  {
    
    if (DMA1->ISR & DMA_ISR_HTIF1)
    {  
+     adc_resultA[1]=adc_resultA[1]+2;
      adc_ht_done=1;
      adc_htcnt++;
      DMA1->IFCR=DMA_IFCR_CHTIF1;
@@ -258,30 +262,32 @@ __irq void DMA1_Channel1_IRQHandler()
     {
       adc_tc_done=1;
         adc_tccnt++;
-        adc_resultA[349]=adc_resultA[349]+1;
+        adc_resultA[1399]=adc_resultA[1399]+2;
       DMA1->IFCR=DMA_IFCR_CTCIF1;
     }
    
   }
 
- __irq void DMA1_Channel3_IRQHandler()
+ __irq void DMA1_Channel3_IRQHandler(void)
 {
-//       if (DMA2->LISR & DMA_LISR_HTIF3)
-//   {
-//     adc_ht_done=0;
-//     DMA2->LIFCR=DMA_LIFCR_CHTIF3;}
-//   
-//    if (DMA2->LISR & DMA_LISR_TCIF3)
-//    {
-//      adc_tc_done=0;
-//      DMA2->LIFCR=DMA_LIFCR_CTCIF3;
-//    }
-        DMA1->IFCR|=DMA_IFCR_CTCIF3; //clear interrupt
-        DMA1->IFCR|=DMA_IFCR_CHTIF3;
+
+     if (DMA1->ISR & DMA_ISR_TCIF3)
+     {
+             spi_cnt++;
+
+        DMA1->IFCR=DMA_IFCR_CTCIF3; //clear interrupt
+  //      DMA1->IFCR=DMA_IFCR_CHTIF3;
         
-      spi_cnt++;
 
+     }
+     
+     
+     if (DMA1->ISR & DMA_ISR_HTIF3)
+   {  
+               //   spi_cnt++;
 
+     DMA1->IFCR=DMA_IFCR_CHTIF3;
+   }
 }
 
 
@@ -323,10 +329,10 @@ int i=0;
 //  
 
 
-  adc_resultA[0]=0xA5A5;
-  adc_resultA[1]=0xA5A5;
-  adc_resultA[348]=0xB9B9;
-  adc_resultA[349]=0;
+   adc_resultA[0]=0xA5A5;
+   adc_resultA[1]=0;
+   adc_resultA[1398]=0xB9B9;
+   adc_resultA[1399]=1;
 
 
 		//APB2=No predivisor=Max Clock=84Mhz
@@ -342,13 +348,13 @@ int i=0;
         //Enable TIM3
 //	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 
-	//* Enbale GPIOA clock */
+	//* Enbale GPIOC clock */
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 
 	//* Enbale GPIOB clock */
 	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
        
-
+        RCC->CFGR|=RCC_CFGR_ADCPRE_0|RCC_CFGR_ADCPRE_1;
 
 NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 
@@ -362,13 +368,13 @@ NVIC_EnableIRQ (DMA1_Channel3_IRQn);
 NVIC_SetPriority ( SPI1_IRQn,4); //enable SPI_RX int
 NVIC_EnableIRQ (SPI1_IRQn); 
 
-
+/*
         GPIOC->MODER |=set_pin_AF(6);  //NSS
 	GPIOC->AFR[0]|=AF_sel(6);
 	GPIOC->OTYPER |=0;
 	GPIOC->OSPEEDR |=set_ospeed(6); 
 //	GPIOC->PUPDR|=set_pulldir(6);
-
+*/
 
 	GPIOC->MODER |=set_pin_AF(7);  //SPICLK
 	GPIOC->AFR[0]|=AF_sel(7);
@@ -391,10 +397,10 @@ NVIC_EnableIRQ (SPI1_IRQn);
 	GPIOC->OSPEEDR |=set_ospeed(9); 
 //	GPIOC->PUPDR|=set_pulldir(9);
 
-	GPIOB->MODER |=(0x01<<12);
-	GPIOB->OTYPER |=0;
-	GPIOB->OSPEEDR |=set_ospeed(6); 
-	GPIOB->BSRRL|=0x0040;                  //set portB pin6 as output=1,CS Disable (high)
+	GPIOC->MODER |=(0x01<<12);
+	GPIOC->OTYPER |=0;
+	GPIOC->OSPEEDR |=set_ospeed(6); 
+	GPIOC->BSRRL|=0x0040;                  //set portC pin6 as output=1,CS Disable (high)
 
   //      GPIOB->PUPDR|=0x1000; //pullup;
  //       GPIOB->PUPDR|=0x2000;//pulldown
@@ -413,7 +419,7 @@ NVIC_EnableIRQ (SPI1_IRQn);
    
                 DMA1_Channel1->CPAR |= (uint32_t)&ADC1->DR;
                 DMA1_Channel1->CMAR = (uint32_t)&adc_resultA[2];
-                DMA1_Channel1->CNDTR =346; //46 readings transfer
+                DMA1_Channel1->CNDTR =1396; //46 readings transfer
                 
                 DMA1_Channel1->CCR |=DMA_CCR_TCIE; //full transfer interrupt enabled
                 DMA1_Channel1->CCR |=DMA_CCR_HTIE;//half transfer interrupt enabled
@@ -461,9 +467,9 @@ NVIC_EnableIRQ (SPI1_IRQn);
                 //DMA CONFIG for SPI_TX
 		DMA1_Channel3->CPAR |= (uint32_t)&SPI1->DR;
                DMA1_Channel3->CMAR |= (uint32_t)&adc_resultA[0]; 
-		DMA1_Channel3->CNDTR =175;
+		DMA1_Channel3->CNDTR =700;
                DMA1_Channel3->CCR |=DMA_CCR_TCIE; //FUll transfer interrupt enabled
-      //      DMA1_Channel3->CCR |=DMA_CCR_HTIE;//half transfer interrupt enabled
+       //       DMA1_Channel3->CCR |=DMA_CCR_HTIE;//half transfer interrupt enabled
 		DMA1_Channel3->CCR |=DMA_CCR_PSIZE_0;   //Set Peripheral data size to 16bits
                 DMA1_Channel3->CCR |=DMA_CCR_MSIZE_0;   //Set Memory data size to 16bits
                 
@@ -485,25 +491,20 @@ NVIC_EnableIRQ (SPI1_IRQn);
                 enable_int_spi();
                spi_cs_enable();
         			
-  SPI1->CR1 &=0x00000000;
-	SPI1->CR2 |=SPI_CR2_DS; //16 bit data frame
-	SPI1->CR1 |=SPI_CR1_BR_0; // Baud Rate as  fpclk/4 (21 Mhz) where fpclk is APB2 clock=84Mhz
 
-	//SPI1->CR1 |= SPI_CR1_SSM ;
-	SPI1->CR1 |= SPI_CR1_SSI;        
-        SPI1->CR2 |= SPI_CR2_SSOE; 
-	SPI1->CR1 |=SPI_CR1_MSTR;
- SPI1->CR1|=SPI_CR1_SPE;
+
 while(1)
 {
- /*
+ 
     if (adc_ht_done==1)
      
     {
-      DMA1->IFCR|=DMA_IFCR_CTCIF3;
-      DMA1->IFCR|=DMA_IFCR_CHTIF3;
+     DMA1->IFCR|=DMA_IFCR_CTCIF3;
+   //  DMA1->IFCR|=DMA_IFCR_CHTIF3;
       DMA1_Channel3->CMAR = (uint32_t)&adc_resultA[0]; 
-      DMA1_Channel3->CNDTR =175;
+      DMA1_Channel3->CCR &=~(DMA_CCR_EN);
+ //      suspend_SPITX_DMA();
+      DMA1_Channel3->CNDTR =700;
       DMA1_Channel3->CCR |=DMA_CCR_EN;
       SPI1->CR1|=SPI_CR1_SPE;
       adc_ht_done=0;
@@ -512,9 +513,11 @@ while(1)
      if (adc_tc_done==1)
     {
       DMA1->IFCR|=DMA_IFCR_CTCIF3;
-      DMA1->IFCR|=DMA_IFCR_CHTIF3;
-      DMA1_Channel3->CMAR = (uint32_t)&adc_resultA[175]; 
-      DMA1_Channel3->CNDTR =175;
+   //   DMA1->IFCR|=DMA_IFCR_CHTIF3;
+      DMA1_Channel3->CMAR = (uint32_t)&adc_resultA[700]; 
+      DMA1_Channel3->CCR &=~(DMA_CCR_EN);
+   //        suspend_SPITX_DMA();
+      DMA1_Channel3->CNDTR =700;
       DMA1_Channel3->CCR |=DMA_CCR_EN;
       SPI1->CR1|=SPI_CR1_SPE;
       adc_tc_done=0;
@@ -558,7 +561,7 @@ while(1)
   {
      while(!(SPI1->SR & SPI_SR_TXE));
     SPI1->DR=0xFFFF;  
-   // while(!(SPI1->SR & SPI_SR_RXNE));
+  //  while(!(SPI1->SR & SPI_SR_RXNE));
     recv_cmd[mosi_high]=SPI1->DR;
     
    ms_delay(1); //Giving 1ms for slave to prepare next CMD element
@@ -574,27 +577,18 @@ while(1)
 
 recv_data[0]=0x0000;
 
-DMA1->IFCR &= 0xFFFFFFFF;
+DMA1->IFCR = 0xFFFFFFFF;
 
   adc_ht_done=0;
    adc_tc_done=0;
 enable_adc();
 
     
-    
    
   }
 h=0;
 
-*/
- int mosi_high;
-      for(mosi_high=0;mosi_high<10;mosi_high++)
-    {
-    //  while(!(SPI1->SR & SPI_SR_TXE));
-      SPI1->DR=0xFFFF;  
-      
-
-  }   
+  
   
 }
 	
