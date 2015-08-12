@@ -282,12 +282,7 @@ __irq void DMA1_Channel1_IRQHandler(void)
      }
      
      
-     if (DMA1->ISR & DMA_ISR_HTIF3)
-   {  
-               //   spi_cnt++;
-
-     DMA1->IFCR=DMA_IFCR_CHTIF3;
-   }
+   
 }
 
 
@@ -500,10 +495,10 @@ while(1)
      
     {
      DMA1->IFCR|=DMA_IFCR_CTCIF3;
-   //  DMA1->IFCR|=DMA_IFCR_CHTIF3;
+     DMA1->IFCR|=DMA_IFCR_CHTIF3;
       DMA1_Channel3->CMAR = (uint32_t)&adc_resultA[0]; 
-      DMA1_Channel3->CCR &=~(DMA_CCR_EN);
- //      suspend_SPITX_DMA();
+  //    DMA1_Channel3->CCR &=~(DMA_CCR_EN);
+       suspend_SPITX_DMA();
       DMA1_Channel3->CNDTR =700;
       DMA1_Channel3->CCR |=DMA_CCR_EN;
       SPI1->CR1|=SPI_CR1_SPE;
@@ -513,10 +508,10 @@ while(1)
      if (adc_tc_done==1)
     {
       DMA1->IFCR|=DMA_IFCR_CTCIF3;
-   //   DMA1->IFCR|=DMA_IFCR_CHTIF3;
+     DMA1->IFCR|=DMA_IFCR_CHTIF3;
       DMA1_Channel3->CMAR = (uint32_t)&adc_resultA[700]; 
-      DMA1_Channel3->CCR &=~(DMA_CCR_EN);
-   //        suspend_SPITX_DMA();
+  //    DMA1_Channel3->CCR &=~(DMA_CCR_EN);
+           suspend_SPITX_DMA();
       DMA1_Channel3->CNDTR =700;
       DMA1_Channel3->CCR |=DMA_CCR_EN;
       SPI1->CR1|=SPI_CR1_SPE;
