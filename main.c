@@ -87,32 +87,30 @@ static void SystemClock_Config(void)
 
 {
 
- RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  
-  /* Enable HSE Oscillator and activate PLL with HSE as source */
+RCC_OscInitTypeDef RCC_OscInitStruct;
+  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct)!= HAL_OK)
-  {
-  }
+  HAL_RCC_OscConfig(&RCC_OscInitStruct);
 
-  /* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 
-     clocks dividers */
-  RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK|RCC_CLOCKTYPE_PCLK1;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;  
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2)!= HAL_OK)
-  {
-  }
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;  //APB1=36Mhz
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4; //APB2=18Mhz
+  HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2);
 
+  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
+  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+
+  __GPIOC_CLK_ENABLE();
+  __GPIOF_CLK_ENABLE();
 
 }
 
@@ -133,7 +131,7 @@ void enable_spi(void)
   
         SPI1->CR1 &=0x00000000;
 	SPI1->CR2 |=SPI_CR2_DS; //16 bit data frame
-	SPI1->CR1 |=SPI_CR1_BR_0; // Baud Rate as  fpclk/4 (21 Mhz) where fpclk is APB2 clock=84Mhz
+//	SPI1->CR1 |=SPI_CR1_BR_0; // Baud Rate as  18MHz
 
 	SPI1->CR1 |= SPI_CR1_SSM ;
 	SPI1->CR1 |= SPI_CR1_SSI;        
@@ -331,7 +329,7 @@ int i=0;
 //  }
 //  
 
-
+  __GPIOF_CLK_ENABLE();
    adc_resultA[0]=0xA5A5;
    adc_resultA[1]=0;
    adc_resultA[1398]=0xB9B9;
@@ -357,7 +355,7 @@ int i=0;
 	//* Enbale GPIOB clock */
 	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
        
-        RCC->CFGR|=RCC_CFGR_ADCPRE_0|RCC_CFGR_ADCPRE_1;
+        RCC->CFGR|=RCC_CFGR_ADCPRE_0|RCC_CFGR_ADCPRE_1; //PCLK Div by 8
 
 NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 
@@ -449,6 +447,7 @@ NVIC_EnableIRQ (SPI1_IRQn);
                
 	ADC1->SQR1|=0x00000010;
         ADC1->CR2 |=ADC_CR2_TSVREFE;
+        ADC1->SMPR1 |=  ADC_SMPR1_SMP16_0|ADC_SMPR1_SMP16_1|ADC_SMPR1_SMP16_2 ; //Sample Time 239.5 cycles
 	ADC1->CR2 |= ADC_CR2_ADON;  //Second time ADC ON to start conversion
         ADC1->CR2 |= ADC_CR2_CONT;   //continous conversion until bit cleared
        ADC1->CR2 |=ADC_CR2_DMA; //use DMA for data transfer
