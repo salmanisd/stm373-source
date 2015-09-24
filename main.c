@@ -131,7 +131,7 @@ void enable_spi(void)
   
         SPI1->CR1 &=0x00000000;
 	SPI1->CR2 |=SPI_CR2_DS; //16 bit data frame
-//	SPI1->CR1 |=SPI_CR1_BR_0; // Baud Rate as  18MHz
+	SPI1->CR1 |=SPI_CR1_BR_0; // Baud Rate as  18MHz
 
 	SPI1->CR1 |= SPI_CR1_SSM ;
 	SPI1->CR1 |= SPI_CR1_SSI;        
@@ -445,7 +445,7 @@ NVIC_EnableIRQ (SPI1_IRQn);
      //   ADC->CCR |=  ADC_CCR_ADCPRE_1;
 	//ADC1->SQR3|=0x00000001;
                
-	ADC1->SQR1|=0x00000010;
+	ADC1->SQR1|=0x00000001;
         ADC1->CR2 |=ADC_CR2_TSVREFE;
         ADC1->SMPR1 |=  ADC_SMPR1_SMP16_0|ADC_SMPR1_SMP16_1|ADC_SMPR1_SMP16_2 ; //Sample Time 239.5 cycles
 	ADC1->CR2 |= ADC_CR2_ADON;  //Second time ADC ON to start conversion
