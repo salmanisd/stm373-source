@@ -1,36 +1,19 @@
 #include <stm32f3xx.h>
 #include <command_struct.h>
+#include <adc.h>
+#include <spi.h>
+#include <gpio.h>
+
 
 //Prototypes
 void ms_delay(int ms);
 //uint8_t SPIsend(uint8_t data);
 unsigned short SPIsend(unsigned short data);
 
-int set_pin_AF(int p);
-int AF_sel(int p);
-int set_ospeed(int p);
-int set_pulldir(int p);
 
-
-void suspend_SPITX_DMA(void);
-void resume_SPITX_DMA(void);
-
-void suspend_SPIRX_DMA(void);
-void resume_SPIRX_DMA(void);
-
-void spi_cs_enable(void);
-void spi_cs_disable(void);
-
-void enable_spi(void);
-void disable_spi(void);
 
 static void SystemClock_Config(void);
-
-void enable_int_spi(void);
-void disable_int_spi(void);
-
-void enable_adc(void);
-void disable_adc(void);
+void green_led(void);
 
 __irq void DMA1_Channel1_IRQHandler(void);
 __irq void DMA1_Channel3_IRQHandler(void);
@@ -66,7 +49,7 @@ unsigned short adc_tccnt=0;
 unsigned short spi_cnt=0;
 
 unsigned int spindtr=0;
-
+unsigned int spi_rx_cnt=0;
 
 unsigned int spdtxdma=0;
 unsigned int restxdma=0;
@@ -114,86 +97,11 @@ RCC_OscInitTypeDef RCC_OscInitStruct;
 
 }
 
-void enable_int_spi(void)
-{
-          SPI1->CR2|=SPI_CR2_TXDMAEN; //DMA request when TX empty flag set
-  //    SPI1->CR2|=SPI_CR2_RXDMAEN; //Rx Buffer DMA Enable 
-        
-       SPI1->CR2|= SPI_CR2_RXNEIE;
-}
-void disable_int_spi(void)
-{
-   SPI1->CR2&=0xFFBF; //disable interrupt RXNEIE bit
-
-}
-void enable_spi(void)
+void green_led(void)
 {
   
-        SPI1->CR1 &=0x00000000;
-	SPI1->CR2 |=SPI_CR2_DS; //16 bit data frame
-	SPI1->CR1 |=SPI_CR1_BR_0; // Baud Rate as  18MHz
-
-	SPI1->CR1 |= SPI_CR1_SSM ;
-	SPI1->CR1 |= SPI_CR1_SSI;        
-  //      SPI1->CR2 |= SPI_CR2_SSOE; 
-	SPI1->CR1 |=SPI_CR1_MSTR;
-        
-
 }
 
-
-
-void disable_spi(void)
-{
- // while(!(SPI1->SR & SPI_SR_RXNE));
-  while(!(SPI1->SR & SPI_SR_TXE));
-
-	while (SPI1->SR & SPI_SR_BSY);
-          SPI1->CR1 &=0xFFFFFFFE;
-
-}
-void suspend_SPITX_DMA(void)
-{
-    
-  spdtxdma++;
-//while(!(SPI1->SR & SPI_SR_TXE));
-// while(!(SPI1->SR & SPI_SR_RXNE));
-
- //Emable DMA Stream for SPI
-              DMA1_Channel3->CCR &=0xFFFFFFFE;  //toggle EN bit from 1 to 0
-         //         DMA1_Channel3->CR ^=DMA_SxCR_EN;  //toggle EN bit from 1 to 0
-while ( DMA1_Channel3->CCR & DMA_CCR_EN ); //break out when DMA_SxCR_EN==0
-               
-}
-//void resume_SPITX_DMA(void)
-//{
-//  
-//}
-
-
-void enable_adc()
-{
-  
-//  ADC1->SR &=~(ADC_SR_OVR);
-
-        DMA1_Channel1->CMAR = (uint32_t)&adc_resultA[2];
-        DMA1_Channel1->CNDTR =1396; //46 readings transfer
-        //Emable DMA Stream for ADC
-        DMA1_Channel1->CCR |=DMA_CCR_EN;
-          
-     	ADC1->CR2 |= ADC_CR2_ADON;  //ADC ON
-        ADC1->CR2 |= ADC_CR2_CONT;   //continous conversion until bit cleared
-        ADC1->CR2 |=ADC_CR2_DMA; //use DMA for data transfer
-//	ADC1->CR2 |=ADC_CR2_DDS; //DMA requests are issued as long as data is converted and DMA=1
-        ADC1->CR2 |=ADC_CR2_SWSTART;	//Start conversion
-        
-}
-
-void disable_adc()
-{               
-  ADC1->CR2&=0xFFFFFFFE;
-  DMA1_Channel1->CCR &=0xFFFFFFFE;  
-}
 
 
 unsigned short SPIsend(unsigned short data)
@@ -212,41 +120,10 @@ unsigned short SPIsend(unsigned short data)
 }
 
 
-	int set_pin_AF(int p)
-	{
-		p=2<<(p*2);
-		return p;
-	}
-
-	int AF_sel(int p)
-	{
-		p=5<<(p*4); //5(0101) for AF=SPI
-		return p;
-	}
-
-	int set_ospeed(int p)
-	{
-		p=1<<(p*2);
-		return p;
-	}
-
 	
-	int set_pulldir(int p) //Pin->Pulledup
-	{
-		p=1<<(p*2);
-		return p;
-	}
  
  
-void spi_cs_enable(void)
-{
-    GPIOC->BSRRH|=0x0040 ; //CS Enable (low)
-}
 
- void spi_cs_disable(void)
-{
-      GPIOC->BSRRL|=0x0040;                  //CS Disable (high) 
-}
 
 __irq void DMA1_Channel1_IRQHandler(void)
  {
@@ -294,7 +171,7 @@ __irq void DMA1_Channel1_IRQHandler(void)
 
  __irq void SPI1_IRQHandler()
  {
-   
+  // spi_rx_cnt++;
  // SPI1->CR2&=0xFFBF;
    *ptr=SPI1->DR;
  
@@ -303,17 +180,15 @@ __irq void DMA1_Channel1_IRQHandler(void)
 
 if (*ptr!=0x0000)
 {
-   //disable interrupt RXNEIE bit
   h=1;
- // ptr++;
 }
 else
 {
   h=0;
-//SPI1->CR2|= SPI_CR2_RXNEIE;  
+
 }
           
- //SPI1->CR2|= SPI_CR2_RXNEIE;
+
  }
  
 void main () {
@@ -323,11 +198,6 @@ void main () {
 ptr=&recv_data[0];
 int i=0;
 
-//  for(i=0;i<48;i++)
-//  {
-//    adc_resultA[i]=0xFF;
-//  }
-//  
 
   __GPIOF_CLK_ENABLE();
    adc_resultA[0]=0xA5A5;
@@ -369,125 +239,19 @@ NVIC_EnableIRQ (DMA1_Channel3_IRQn);
 NVIC_SetPriority ( SPI1_IRQn,4); //enable SPI_RX int
 NVIC_EnableIRQ (SPI1_IRQn); 
 
-/*
-        GPIOC->MODER |=set_pin_AF(6);  //NSS
-	GPIOC->AFR[0]|=AF_sel(6);
-	GPIOC->OTYPER |=0;
-	GPIOC->OSPEEDR |=set_ospeed(6); 
-//	GPIOC->PUPDR|=set_pulldir(6);
-*/
-
-	GPIOC->MODER |=set_pin_AF(7);  //SPICLK
-	GPIOC->AFR[0]|=AF_sel(7);
-	GPIOC->OTYPER |=0;
-	GPIOC->OSPEEDR |=set_ospeed(7); 
-//	GPIOC->PUPDR|=set_pulldir(7);
-
-	GPIOC->MODER |=set_pin_AF(8);    //MISO
-	GPIOC->AFR[1]|=5;
-	GPIOC->OTYPER |=0;
-	GPIOC->OSPEEDR |=set_ospeed(8); 
-//	GPIOC->PUPDR|=set_pulldir(8);
-//GPIOA->PUPDR|=0x1000; //pullup when Slave missing
-//GPIOA->PUPDR|=0x2000;// pulldown
-
-
-	GPIOC->MODER |=set_pin_AF(9);   //MOSI
-	GPIOC->AFR[1]|=5<<4 ;
-	GPIOC->OTYPER |=0;
-	GPIOC->OSPEEDR |=set_ospeed(9); 
-//	GPIOC->PUPDR|=set_pulldir(9);
-
-	GPIOC->MODER |=(0x01<<12);
-	GPIOC->OTYPER |=0;
-	GPIOC->OSPEEDR |=set_ospeed(6); 
-	GPIOC->BSRRL|=0x0040;                  //set portC pin6 as output=1,CS Disable (high)
-
-  //      GPIOB->PUPDR|=0x1000; //pullup;
- //       GPIOB->PUPDR|=0x2000;//pulldown
-        
-	GPIOA->MODER |= 0X0000000F; //FOR ADC MCU pins PA0 and PA1 set to analog mode
-
-
-              
-/****************************************************************************************************/
-        /* DMA Config For ADC */
-/****************************************************************************************************/            
-             
-      	//DMA CONFIG FOR ADC
-                DMA1_Channel1->CCR &= 0;
-		while ( (DMA1_Channel1->CCR !=0));
-   
-                DMA1_Channel1->CPAR |= (uint32_t)&ADC1->DR;
-                DMA1_Channel1->CMAR = (uint32_t)&adc_resultA[2];
-                DMA1_Channel1->CNDTR =1396; //46 readings transfer
-                
-                DMA1_Channel1->CCR |=DMA_CCR_TCIE; //full transfer interrupt enabled
-                DMA1_Channel1->CCR |=DMA_CCR_HTIE;//half transfer interrupt enabled
-                
-                DMA1_Channel1->CCR |=DMA_CCR_PSIZE_0;   //Set Peripheral data size to 16bits
-                DMA1_Channel1->CCR |=DMA_CCR_MSIZE_0;
-		DMA1_Channel1->CCR |=DMA_CCR_PL_1;     // High prority
-          //      DMA1_Channel1->CCR |=DMA_SxCR_PL_0; 
-                DMA1_Channel1->CCR |=DMA_CCR_CIRC; //circular mode set
-                DMA1_Channel1->CCR |=DMA_CCR_MINC; //memory increment
-                
-		//	DMA1_Channel1->CCR |=(1<<6); //direction
-                //DMA1_Channel1->CCR |= (1<<5) ; //[perh is flowcontroller
-                 //Emable DMA Stream for ADC
-               DMA1_Channel1->CCR |=DMA_CCR_EN;
-        
-/****************************************************************************************************/
-              
-        ADC1->CR2 |= ADC_CR2_ADON;  //First ADC ON
-        
-    //    ADC->CCR |= ADC_CCR_ADCPRE_0;
-     //   ADC->CCR |=  ADC_CCR_ADCPRE_1;
-	//ADC1->SQR3|=0x00000001;
-               
-	ADC1->SQR1|=0x00000001;
-        ADC1->CR2 |=ADC_CR2_TSVREFE;
-        ADC1->SMPR1 |=  ADC_SMPR1_SMP16_0|ADC_SMPR1_SMP16_1|ADC_SMPR1_SMP16_2 ; //Sample Time 239.5 cycles
-	ADC1->CR2 |= ADC_CR2_ADON;  //Second time ADC ON to start conversion
-        ADC1->CR2 |= ADC_CR2_CONT;   //continous conversion until bit cleared
-       ADC1->CR2 |=ADC_CR2_DMA; //use DMA for data transfer
-//	ADC1->CR2 |=ADC_CR2_DDS; //DMA requests are issued as long as data is converted and DMA=1
-        ADC1->CR2 |=ADC_CR2_SWSTART;	//Start conversion
-	
+init_gpio();
+     
+     
+init_adc_dma();      
+     
+init_adc();
 	 
     
 							
 	 enable_spi();
 
-
-/****************************************************************************************************/
-        /* DMA Config For SPI_TX */
-/****************************************************************************************************/
-		DMA1_Channel3->CCR &= 0;
-		while ( (DMA1_Channel3->CCR !=0));
-	
-                //DMA CONFIG for SPI_TX
-		DMA1_Channel3->CPAR |= (uint32_t)&SPI1->DR;
-               DMA1_Channel3->CMAR |= (uint32_t)&adc_resultA[0]; 
-		DMA1_Channel3->CNDTR =700;
-               DMA1_Channel3->CCR |=DMA_CCR_TCIE; //FUll transfer interrupt enabled
-       //       DMA1_Channel3->CCR |=DMA_CCR_HTIE;//half transfer interrupt enabled
-		DMA1_Channel3->CCR |=DMA_CCR_PSIZE_0;   //Set Peripheral data size to 16bits
-                DMA1_Channel3->CCR |=DMA_CCR_MSIZE_0;   //Set Memory data size to 16bits
-                
-		DMA1_Channel3->CCR |=DMA_CCR_PL_0;     //Very High prority
-                DMA1_Channel3->CCR |=DMA_CCR_PL_1; 
-                
-		DMA1_Channel3->CCR |=DMA_CCR_MINC;
-	//	DMA1_Channel3->CCR |=DMA_SxCR_CIRC; //circular mode set for SPI
-		DMA1_Channel3->CCR |=DMA_CCR_DIR; //direction read from memory
-		//      DMA1_Channel3->CCR |= (1<<5) ; //[perh is flowcontroller
-		
-         
-                //Emable DMA Stream for SPI
-       //     DMA1_Channel3->CCR |=DMA_SxCR_EN;
-                
-/****************************************************************************************************/                   
+init_spi_dma(); 
+                  
    
                         
                 enable_int_spi();
@@ -501,11 +265,10 @@ while(1)
     if (adc_ht_done==1)
      
     {
-     DMA1->IFCR|=DMA_IFCR_CTCIF3;
-    DMA1->IFCR|=DMA_IFCR_CHTIF3;
+      DMA1->IFCR|=DMA_IFCR_CTCIF3;
+      DMA1->IFCR|=DMA_IFCR_CHTIF3;
       DMA1_Channel3->CMAR = (uint32_t)&adc_resultA[0]; 
       DMA1_Channel3->CCR &=~(DMA_CCR_EN);
- //      suspend_SPITX_DMA();
       DMA1_Channel3->CNDTR =700;
       DMA1_Channel3->CCR |=DMA_CCR_EN;
       SPI1->CR1|=SPI_CR1_SPE;
@@ -516,10 +279,9 @@ while(1)
      if (adc_tc_done==1)
     {
       DMA1->IFCR|=DMA_IFCR_CTCIF3;
-     DMA1->IFCR|=DMA_IFCR_CHTIF3;
+      DMA1->IFCR|=DMA_IFCR_CHTIF3;
       DMA1_Channel3->CMAR = (uint32_t)&adc_resultA[700]; 
       DMA1_Channel3->CCR &=~(DMA_CCR_EN);
-   //        suspend_SPITX_DMA();
       DMA1_Channel3->CNDTR =700;
       DMA1_Channel3->CCR |=DMA_CCR_EN;
       SPI1->CR1|=SPI_CR1_SPE;
@@ -592,6 +354,10 @@ enable_adc();
     
    
   }
+      //GREEN orange LEd GGPIOC Settings
+        GPIOC->MODER |=GPIO_MODER_MODER12_0;
+    GPIOC->OSPEEDR |=GPIO_OSPEEDER_OSPEEDR12_0; 
+      GPIOC->BSRRL|= GPIO_BSRR_BS_12 ;
 h=0;
 
   
