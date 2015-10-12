@@ -217,7 +217,7 @@ int i=0;
         RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 	
         //Enable TIM3
-//	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 
 	//* Enbale GPIOC clock */
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
@@ -333,7 +333,7 @@ while(1)
    ms_delay(1); //Giving 1ms for slave to prepare next CMD element
   }   
   ms_delay(100);
- process_cmd(&recv_cmd[1]);
+ process_cmd(&recv_cmd[2]);
  
             spi_cs_disable();
       
@@ -354,10 +354,10 @@ enable_adc();
     
    
   }
-      //GREEN orange LEd GGPIOC Settings
+    /*  //GREEN orange LEd GGPIOC Settings
         GPIOC->MODER |=GPIO_MODER_MODER12_0;
     GPIOC->OSPEEDR |=GPIO_OSPEEDER_OSPEEDR12_0; 
-      GPIOC->BSRRL|= GPIO_BSRR_BS_12 ;
+      GPIOC->BSRRL|= GPIO_BSRR_BS_12 ;*/
 h=0;
 
   
