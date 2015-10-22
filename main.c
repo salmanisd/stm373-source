@@ -30,7 +30,7 @@ void ms_delay(int ms) {
 }
 
 
-//GLOBAL VARIABLES
+//GLOBAL VARIABLES/////
 static short j=10;
 unsigned short adc_resultA[1400];
 unsigned short adc_resultB[350];
