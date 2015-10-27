@@ -1,9 +1,10 @@
 #include <command_struct.h>
 #include <stm32f3xx.h>
 
-unsigned short adc_config=0;
-unsigned short adc_sample_cycles=0;
-unsigned short adc_clk_div=0;
+  unsigned short number_of_channels=0;
+  unsigned short adc_config=0;
+  unsigned short adc_sample_cycles=0;
+  unsigned short adc_clk_div=0;
 
 struct Command {
 	unsigned short opcode;
@@ -21,28 +22,24 @@ unsigned short createMask(unsigned short a, unsigned short b)
    return r;
 }
 
-//struct Command CMD_01;
-//struct Command CMD_02;
-//
-//   ADCPRE[1:0]: ADC prescaler'=
+
 /*
 These bits are set and cleared by software to select the frequency of the clock to
 the ADC.
-00: PCLK divided by 2 =18 M
-01: PCLK divided by 4 =9 M
-10: PCLK divided by 6 =4.5 M
-11: PCLK divided by 8 =2.2 5M
+00: PCLK divided by 2 =18   M
+01: PCLK divided by 4 =9    M
+10: PCLK divided by 6 =4.5  M
+11: PCLK divided by 8 =2.25 M
 */
 
 
 void process_cmd(unsigned short* opcode)
 {
   unsigned short r;
-  
 
 
   r=createMask(0,3);
- // number_of_channels=r & (*opcode); 
+  number_of_channels=r & (*opcode); 
     
   r=createMask(4,7);
   adc_sample_cycles=(r & (*opcode))>>4;
@@ -56,9 +53,10 @@ void process_cmd(unsigned short* opcode)
 if (adc_config)
 {
   
-  RCC->CFGR &=~RCC_CFGR_ADCPRE;//reset to 00 
- ADC1->SMPR1 &= ~ADC_SMPR1_SMP16; //reset to 000
-
+  RCC->CFGR   &=~RCC_CFGR_ADCPRE;//reset to 00 
+  ADC1->SMPR1 &= ~ADC_SMPR1_SMP16; //reset to 000<-for chan 16?
+  ADC1->SQR1  &= ~ADC_SQR1_L;           //reset length of convserions to zero
+  
   switch (adc_clk_div)
   {
       case  2:
@@ -84,7 +82,12 @@ if (adc_config)
       default:
         TIM3->PSC = 30000;  
         break;
+        
   }
+  
+  
+     ADC1->SQR1|=((number_of_channels-1)<<20 );
+    
   
 }
 

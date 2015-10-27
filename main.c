@@ -333,7 +333,7 @@ while(1)
    ms_delay(1); //Giving 1ms for slave to prepare next CMD element
   }   
   ms_delay(100);
- process_cmd(&recv_cmd[2]);
+ process_cmd(&recv_cmd[3]);
  
             spi_cs_disable();
       
@@ -356,7 +356,7 @@ enable_adc();
   }
     /*  //GREEN orange LEd GGPIOC Settings
         GPIOC->MODER |=GPIO_MODER_MODER12_0;
-    GPIOC->OSPEEDR |=GPIO_OSPEEDER_OSPEEDR12_0; 
+    GPIOC->OSPEEDR |=GPIO_OSPEEDER_OSPEEDR10; 
       GPIOC->BSRRL|= GPIO_BSRR_BS_12 ;*/
 h=0;
 
