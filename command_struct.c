@@ -5,12 +5,8 @@
   unsigned short adc_config=0;
   unsigned short adc_sample_cycles=0;
   unsigned short adc_clk_div=0;
+  unsigned short new_adcdma_cndtr=0;
 
-struct Command {
-	unsigned short opcode;
-	unsigned short len;
-	unsigned short descriptor;
-};
 
 unsigned short createMask(unsigned short a, unsigned short b)
 {
@@ -33,7 +29,7 @@ the ADC.
 */
 
 
-void process_cmd(unsigned short* opcode)
+unsigned int process_cmd(unsigned short* opcode)
 {
   unsigned short r;
 
@@ -80,16 +76,18 @@ if (adc_config)
       break;
       
       default:
-        TIM3->PSC = 30000;  
+         RCC->CFGR|=3<<14; //PCLK Div by 8
+      ADC1->SMPR1 |= adc_sample_cycles<<18;  
         break;
         
   }
   
-  
+  new_adcdma_cndtr=0;
      ADC1->SQR1|=((number_of_channels-1)<<20 );
-    
+    new_adcdma_cndtr=1396-(1396%number_of_channels);
   
 }
 
+return new_adcdma_cndtr;
 
 }

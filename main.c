@@ -42,7 +42,9 @@ static int flag=0;
 
 unsigned int adc_ht_done=0;
 unsigned int adc_tc_done=0;
-   
+
+unsigned int dma_cndtr;
+
 unsigned short adc_htcnt=0;
 unsigned short adc_tccnt=0;
 
@@ -333,14 +335,16 @@ while(1)
    ms_delay(1); //Giving 1ms for slave to prepare next CMD element
   }   
   ms_delay(100);
- process_cmd(&recv_cmd[3]);
+dma_cndtr= process_cmd(&recv_cmd[3]);
  
             spi_cs_disable();
       
             
               spi_cs_enable();
-
-
+ while(!(SPI1->SR & SPI_SR_TXE));
+    SPI1->DR=recv_cmd[3];  
+  
+   
 recv_data[0]=0x0000;
 
 //DMA1->IFCR = 0xFFFFFFFF;
@@ -349,7 +353,7 @@ recv_data[0]=0x0000;
    adc_tc_done=0;
    adc_resultA[1]=0;
    adc_resultA[1399]=1;
-enable_adc();
+enable_adc(dma_cndtr);
 
     
    
